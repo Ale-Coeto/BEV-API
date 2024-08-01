@@ -20,3 +20,8 @@ docker run -it --gpus all -u $(id -u):$(id -g) --rm -p 8000:8000  -v $(pwd):/app
 ```bash
 python3 main.py
 ```
+
+## Development
+Based on [SAmmarAbbas/birds-eye-view](https://github.com/SAmmarAbbas/birds-eye-view/tree/master)
+
+And development from [Emiliano Flores](https://github.com/EmilianoHFlores)
