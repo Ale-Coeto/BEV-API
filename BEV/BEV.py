@@ -9,6 +9,7 @@ from math import pi
 from math import radians
 from timeit import default_timer as timer
 import boto3
+from botocore.exceptions import NoCredentialsError
 from dotenv import load_dotenv
 
 import cv2
@@ -389,17 +390,18 @@ class BEV:
     load_dotenv()
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY") 
-    AWS_BUCKET_NAME = 'my-test-bucket'
-    AWS_REGION = 'us-east-1'
+    AWS_BUCKET_NAME = 'homography-matrices'
+    AWS_REGION = 'us-east-2'
 
     S3_CLIENT = boto3.client(
         's3',
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        region_name=AWS_REGION
     )
 
     @classmethod
-    def getFrame(cls, bucket, file):
+    def getFrame(cls, bucket, path):
         """
         This method download a file video given a 
         bucket and object file path
@@ -408,16 +410,60 @@ class BEV:
         # file_name = file.split('/')[-1]
         os.makedirs('videos', exist_ok=True)
         new_path = "videos/test"
-        cls.S3_CLIENT.download_file(bucket, file, new_path)
+        cls.S3_CLIENT.download_file(bucket, path, new_path)
 
         video = cv2.VideoCapture(new_path)
         ret, frame = video.read()
         cv2.imwrite("videos/a.jpg",frame)
 
         return frame 
+    
+    @classmethod
+    def getMatrix(cls, bucket, path):
+        """
+        This method download a file video given a 
+        bucket and object file path
+        """
+
+        # file_name = file.split('/')[-1]
+        os.makedirs('txts', exist_ok=True)
+        new_path = "txts/test"
+        cls.S3_CLIENT.download_file(bucket, path, new_path)
+
+        # video = cv2.VideoCapture(new_path)
+        # ret, frame = video.read()
+        # cv2.imwrite("txts/a.txt",frame)
+
+        # return frame 
+     
+    @classmethod
+    def uploadFile(cls, file, filename):
+        # try:
+        #     cls.S3_CLIENT.create_bucket(Bucket=cls.AWS_BUCKET_NAME,CreateBucketConfiguration={
+        #                 'LocationConstraint': cls.S3_CLIENT.meta.region_name
+        #             })
+
+        # except cls.S3_CLIENT.exceptions.BucketAlreadyExists:
+        #     pass
+        # except cls.S3_CLIENT.exceptions.BucketAlreadyOwnedByYou:
+        #     pass
+        print("AAAA")
+        print(filename)
+        try:
+            with open(file, 'rb') as file:
+                cls.S3_CLIENT.upload_fileobj(file, cls.AWS_BUCKET_NAME, filename)
+            print("File uploaded successfully to bucket with key")
+        except Exception as e:
+            print("An error occurred")
+        
+        # try:
+        #     cls.S3_CLIENT.upload_fileobj(file, cls.AWS_BUCKET_NAME, filename)
+        #     return {"filename": filename}
+        # except NoCredentialsError:
+        #     return {"error": "Invalid credentials"}
 
     @classmethod
-    def get_homography(cls, img_cv: str):
+    def get_homography(cls, img_cv, filename:str):
         net_width = 299
         net_height = 299
         consider_top = 53
@@ -435,7 +481,7 @@ class BEV:
         num_bins = 500
 
         # img_cv = cv2.imread(img_cv)
-        img_path = "image.jpeg"
+        img_path = filename
         img_cv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
         orig_height, orig_width, orig_channels = img_cv.shape
 
@@ -517,11 +563,22 @@ class BEV:
         plt.show()
         os.makedirs("BEV/output/", exist_ok=True)
         txt_file = 'BEV/output/' + img_path[img_path.rfind('/') + 1:img_path.rfind(
-            '.')] + '_homography_matrix_' + "inception-v4" + '.csv'
+            '.')] + '_homography_matrix_' + "inception-v4" + '.txt'
         img_file = 'BEV/output/' + img_path[img_path.rfind('/') + 1:img_path.rfind(
             '.')] + '_warped_' + "inception-v4" + '.png'
         plt.savefig(img_file)
         np.savetxt(txt_file, scaled_overhead_hmatrix)
+        
+        filename = "matrices/" + img_path[img_path.rfind('/') + 1:img_path.rfind(
+            '.')] + ".txt"
+
+
+        # Open the file in append mode
+        with open(txt_file, 'a') as file:
+            # Write the new line to the file
+            file.write(str(target_dim[0]) + " " + str(target_dim[1]))
+            
+        cls.uploadFile(txt_file, filename)
         print("Homography matrix saved to the text file:", txt_file)
         print("------------------------------------------------")
 
