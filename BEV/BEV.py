@@ -8,6 +8,8 @@ from math import degrees
 from math import pi
 from math import radians
 from timeit import default_timer as timer
+import boto3
+from dotenv import load_dotenv
 
 import cv2
 import matplotlib.pyplot as plt
@@ -384,8 +386,38 @@ def modified_matrices_calculate_range_output_without_translation(height, width, 
 
 class BEV:
 
+    load_dotenv()
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY") 
+    AWS_BUCKET_NAME = 'my-test-bucket'
+    AWS_REGION = 'us-east-1'
+
+    S3_CLIENT = boto3.client(
+        's3',
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    )
+
     @classmethod
-    def get_homography(cls, img_path: str):
+    def getFrame(cls, bucket, file):
+        """
+        This method download a file video given a 
+        bucket and object file path
+        """
+
+        # file_name = file.split('/')[-1]
+        os.makedirs('videos', exist_ok=True)
+        new_path = "videos/test"
+        cls.S3_CLIENT.download_file(bucket, file, new_path)
+
+        video = cv2.VideoCapture(new_path)
+        ret, frame = video.read()
+        cv2.imwrite("videos/a.jpg",frame)
+
+        return frame 
+
+    @classmethod
+    def get_homography(cls, img_cv: str):
         net_width = 299
         net_height = 299
         consider_top = 53
@@ -402,7 +434,8 @@ class BEV:
 
         num_bins = 500
 
-        img_cv = cv2.imread(img_path)
+        # img_cv = cv2.imread(img_cv)
+        img_path = "image.jpeg"
         img_cv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
         orig_height, orig_width, orig_channels = img_cv.shape
 
@@ -484,7 +517,7 @@ class BEV:
         plt.show()
         os.makedirs("BEV/output/", exist_ok=True)
         txt_file = 'BEV/output/' + img_path[img_path.rfind('/') + 1:img_path.rfind(
-            '.')] + '_homography_matrix_' + "inception-v4" + '.txt'
+            '.')] + '_homography_matrix_' + "inception-v4" + '.csv'
         img_file = 'BEV/output/' + img_path[img_path.rfind('/') + 1:img_path.rfind(
             '.')] + '_warped_' + "inception-v4" + '.png'
         plt.savefig(img_file)

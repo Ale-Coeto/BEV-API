@@ -14,10 +14,12 @@ def get_homography_BEV():
     #TODO (alecoeto): download video from bucket, extract first frame and send it to get_homography()
 
     img = "parque1.jpeg"
-    BEV.get_homography(img)
+    frame = BEV.getFrame("tca-tec", "videos/clz6npp6r00055bsy3un6xbe8.mp4")
+
+    BEV.get_homography(frame)
 
     #TODO (alecoeto): save CSV in bucket
     return jsonify({"result": "Success"})
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8000)
+    app.run(host='0.0.0.0', port=8000)
