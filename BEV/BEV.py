@@ -104,32 +104,6 @@ def get_horvpz_from_projected_4indices_modified(output_label, all_bins, all_sphe
     return input_points
 
 
-def plot_scaled_horizonvector_vpz_picture(image, horizonvector_vpz, net_dims, color='go', show_vz=False, verbose=False):
-    # because we are gonna rescale horizon line to these dimensions
-    re_height, re_width, re_channels = image.shape
-    net_width, net_height = net_dims
-
-    scaled_vpz = np.zeros_like(horizonvector_vpz[1, :])
-    scaled_vpz[0] = horizonvector_vpz[1, 0] * re_width / net_width
-    scaled_vpz[1] = horizonvector_vpz[1, 1] * re_height / net_height
-
-    horizon_vectorform = np.hstack((horizonvector_vpz[0, :2], 1))
-    horizon_vectorform[0] = horizon_vectorform[0] / (re_width / net_width)
-    horizon_vectorform[1] = horizon_vectorform[1] / (re_height / net_height)
-    horizon_vectorform = horizon_vectorform / horizon_vectorform[2]
-
-    slope, intercept = get_slope_intercept_from_abc_line(horizon_vectorform)
-    fig, ax = plt.subplots(1, 1)
-    ax.imshow(image)
-    abline(slope, intercept)
-    if show_vz:
-        ax.plot(scaled_vpz[0], scaled_vpz[1], color)
-
-    if verbose:
-        print("Horizon Line:", horizon_vectorform)
-        print("Vertical Vanishing Point:", scaled_vpz)
-    return ax
-
 
 def get_intrinisic_extrinsic_params_from_horizonvector_vpz(img_dims, horizonvector_vpz, net_dims, verbose=False):
     re_width, re_height = img_dims
@@ -407,7 +381,6 @@ class BEV:
         bucket and object file path
         """
 
-        # file_name = file.split('/')[-1]
         os.makedirs('videos', exist_ok=True)
         new_path = "videos/test"
         cls.S3_CLIENT.download_file(bucket, path, new_path)
@@ -425,42 +398,20 @@ class BEV:
         bucket and object file path
         """
 
-        # file_name = file.split('/')[-1]
         os.makedirs('txts', exist_ok=True)
         new_path = "txts/test"
         cls.S3_CLIENT.download_file(bucket, path, new_path)
 
-        # video = cv2.VideoCapture(new_path)
-        # ret, frame = video.read()
-        # cv2.imwrite("txts/a.txt",frame)
-
-        # return frame 
      
     @classmethod
     def uploadFile(cls, file, filename):
-        # try:
-        #     cls.S3_CLIENT.create_bucket(Bucket=cls.AWS_BUCKET_NAME,CreateBucketConfiguration={
-        #                 'LocationConstraint': cls.S3_CLIENT.meta.region_name
-        #             })
-
-        # except cls.S3_CLIENT.exceptions.BucketAlreadyExists:
-        #     pass
-        # except cls.S3_CLIENT.exceptions.BucketAlreadyOwnedByYou:
-        #     pass
-        print("AAAA")
-        print(filename)
         try:
             with open(file, 'rb') as file:
                 cls.S3_CLIENT.upload_fileobj(file, cls.AWS_BUCKET_NAME, filename)
             print("File uploaded successfully to bucket with key")
         except Exception as e:
             print("An error occurred")
-        
-        # try:
-        #     cls.S3_CLIENT.upload_fileobj(file, cls.AWS_BUCKET_NAME, filename)
-        #     return {"filename": filename}
-        # except NoCredentialsError:
-        #     return {"error": "Invalid credentials"}
+
 
     @classmethod
     def get_homography(cls, img_cv, filename:str):
@@ -471,22 +422,17 @@ class BEV:
         data = np.load('BEV/data/cnn_parameters/carlavp-299x299_label_to_horvpz_fov_pitch.npz')
         train_dir = 'BEV/data/saved_models/incp4/model.ckpt-17721'
 
-
         all_bins = data['all_bins']
         all_sphere_centres = data['all_sphere_centres']
         all_sphere_radii = data['all_sphere_radii']
 
         no_params_model = 4
-
         num_bins = 500
-
-        # img_cv = cv2.imread(img_cv)
         img_path = filename
         img_cv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
         orig_height, orig_width, orig_channels = img_cv.shape
 
         my_img = cv2.resize(img_cv, dsize=(net_width, net_height), interpolation=cv2.INTER_CUBIC)
-
         my_img = (np.array(my_img, np.float32)) * (1. / 255)
         my_img = (my_img - 0.5) * 2
 
@@ -533,13 +479,6 @@ class BEV:
         print("Time taken: {0:.2f}s".format(end-start))
         print("Output of the code")
         print("------------------------------------------------")
-
-        plot_scaled_horizonvector_vpz_picture(img_cv, estimated_input_points, net_dims=(net_width, net_height),
-                                            color='go', show_vz=True, verbose=True)
-        vector_img_file = 'BEV/output/' + img_path[img_path.rfind('/') + 1:img_path.rfind(
-            '.')] + '_vector_' + "inception-v4" + '.png'
-        plt.savefig(vector_img_file)
-        plt.show()
         
         fx, fy, roll_from_horizon, my_tilt = get_intrinisic_extrinsic_params_from_horizonvector_vpz(
             img_dims=(orig_width, orig_height),
@@ -556,26 +495,17 @@ class BEV:
                                                                                             verbose=False)
         scaled_overhead_hmatrix, target_dim = get_scaled_homography(overhead_hmatrix, 1080, est_range_u, est_range_v)
         print("target dim: ", target_dim)
-        w,h,channels = img_cv.shape
-        warped = cv2.warpPerspective(img_cv, scaled_overhead_hmatrix, dsize=target_dim, flags=cv2.INTER_CUBIC)
-        plt.imshow(warped)
-        plt.title('Birds-eye view Image')
-        plt.show()
         os.makedirs("BEV/output/", exist_ok=True)
         txt_file = 'BEV/output/' + img_path[img_path.rfind('/') + 1:img_path.rfind(
             '.')] + '_homography_matrix_' + "inception-v4" + '.txt'
-        img_file = 'BEV/output/' + img_path[img_path.rfind('/') + 1:img_path.rfind(
-            '.')] + '_warped_' + "inception-v4" + '.png'
-        plt.savefig(img_file)
+
         np.savetxt(txt_file, scaled_overhead_hmatrix)
         
         filename = "matrices/" + img_path[img_path.rfind('/') + 1:img_path.rfind(
             '.')] + ".txt"
 
-
-        # Open the file in append mode
+        # Add target dimensions to file
         with open(txt_file, 'a') as file:
-            # Write the new line to the file
             file.write(str(target_dim[0]) + " " + str(target_dim[1]))
             
         cls.uploadFile(txt_file, filename)

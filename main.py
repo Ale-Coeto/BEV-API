@@ -11,7 +11,7 @@ def hello_world():
 def get_homography_BEV():
     bucket = request.get_json()["bucket"]
     path = request.get_json()["path"]
-
+    
     frame = BEV.getFrame(bucket, path)
     BEV.get_homography(frame, path)
 
@@ -22,8 +22,8 @@ def get_homography_BEV():
 def get_matrix():
     bucket = request.get_json()["bucket"]
     path = request.get_json()["path"]
-
     BEV.getMatrix(bucket, path)
+
     return jsonify({"result": "Success"})
 
 
